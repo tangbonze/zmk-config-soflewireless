@@ -2,4 +2,8 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    # Keep this ref aligned with config/west.yml (`revision:`).
+    # @main pulls in checks that require Zephyr >= 4.1 (the
+    # "west boards --format {qualifiers}" compat probe), which do not exist in
+    # the Zephyr 3.5 tree used by ZMK v0.2 -> KeyError: 'qualifiers'.
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@v0.2
