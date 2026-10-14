@@ -74,6 +74,13 @@ manifest:
     - name: zmk-feature-module-physical-layout
     # 输入处理器：鼠标 / 滚轮 / 滚动的运行时调节
     - name: zmk-module-runtime-input-processor
+    # 编码器运行时映射：让每枚旋转编码器的顺/逆时针行为可在网页上按层配置，
+    # 无需重新编译固件；未配置时回落到 keymap 里写的 cw-binding / ccw-binding。
+    # https://github.com/cormoran/zmk-behavior-runtime-sensor-rotate
+    # 该仓库根目录有一个自己的 west.yml（用于它自身的开发工作区）。
+    # **不要**在这里写 `import:` —— west 会把被导入项目的 manifest 当作
+    # 自身的依赖清单解析，会把它的开发依赖一并拉进来。保持纯项目引用即可。
+    - name: zmk-behavior-runtime-sensor-rotate
     # 快速键位图：增量同步键位，减少大数据量传输
     - name: zmk-feature-fast-keymap
     # 设备信息：固件版本、uptime、分半信息

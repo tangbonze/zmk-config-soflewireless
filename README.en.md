@@ -101,15 +101,44 @@ LWR   ENT                       ALT   RGUI
 
 One EC11 per half, mapped identically across all four layers:
 
-| | Mapping |
+| | Default (fallback until configured on the web) |
 | --- | --- |
-| Left encoder | Volume (`C_VOL_UP` / `C_VOL_DN`) |
-| Right encoder | Paging (`PG_UP` / `PG_DN`) |
+| Left encoder (sensor 0) | Volume (`C_VOL_UP` / `C_VOL_DN`) |
+| Right encoder (sensor 1) | Paging (`PG_UP` / `PG_DN`) |
 
-These are handled by `&inc_dec_kp` in `sensor-bindings`, which **depends on
-`CONFIG_EC11=y` and `CONFIG_EC11_TRIGGER_GLOBAL_THREAD=y` in
+**Encoder mappings can be reconfigured per layer from the DYA Studio web UI,
+without reflashing.** This branch integrates
+[cormoran/zmk-behavior-runtime-sensor-rotate](https://github.com/cormoran/zmk-behavior-runtime-sensor-rotate)
+and defines one behavior instance per encoder in the keymap:
+
+```
+rsr_left_vol   → sensor 0 (left)  cw-binding = <&kp C_VOL_UP>  ccw-binding = <&kp C_VOL_DN>
+rsr_right_pg   → sensor 1 (right)  cw-binding = <&kp PG_UP>     ccw-binding = <&kp PG_DN>
+```
+
+All four layers use `sensor-bindings = <&rsr_left_vol &rsr_right_pg>`. How it
+behaves:
+
+- **Fallback defaults** — until a layer is configured on the web, the
+  `cw-binding` / `ccw-binding` above apply (same feel as the original
+  `&inc_dec_kp` on `main`)
+- **Web wins** — once a layer is configured in DYA Studio, the web config takes
+  precedence for that layer
+- **Persistent** — bindings are written to settings and survive reboots
+- With neither default nor runtime bindings, the instance is transparent (no action)
+
+This **depends on `CONFIG_EC11=y` and `CONFIG_EC11_TRIGGER_GLOBAL_THREAD=y` in
 `config/sofle.conf`** — do not remove those two lines, or the sensors stay
 present but stop emitting events and the encoders go completely dead.
+
+> The module's Kconfig is enabled only on **central (the left half)** — see
+> `snippets/sofle-central/sofle-central.conf`. The Studio RPC protobuf stubs are
+> generated for central only, and enabling it on the right half fails the build.
+> This does not affect usage: **encoder events travel over the split link to
+> central**, so rotations on both halves take effect.
+>
+> It relies on the settings backend for persistence, which is already provided
+> by `zmk-module-settings-rpc` (`CONFIG_ZMK_SETTINGS_RPC=y`).
 
 > `config/sofle.conf` does not set `CONFIG_ZMK_DISPLAY`. The display is selected
 > by the snippet in `build.yaml` (`sofle-oled` / `sofle-no-display`).
@@ -138,13 +167,15 @@ Firefox and Safari are not supported.
 
 - **Keymap Editor** — edit keys and layers visually, with live key highlighting
 - **Macros & Combos** — create macros and combos in the browser, **no reflash needed**
+- **Sensor Rotate** — configure encoder directions **per layer**, no reflash, persisted
 - **Connection Management** — rename / switch / unbind BLE profiles, set USB vs Bluetooth priority
 - **Device Settings** — power management (idle / deep sleep timeouts), per-half settings
 - **Troubleshooting** — battery, firmware version, uptime; per-key bounce detection; full support report
 
 > Sofle has encoders but no trackball, so DYA Studio's Trackball Tuning and the
-> related modules (PMW3610 driver) do not apply; encoders map to the Input
-> Processor panel instead.
+> related modules (PMW3610 driver) do not apply. Encoder directions are
+> configured in the **Sensor Rotate** panel; the Input Processor panel targets
+> pointing devices (mouse / trackball).
 
 ### Studio locking
 

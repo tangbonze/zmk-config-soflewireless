@@ -92,14 +92,39 @@ LWR   ENT                          ALT   RGUI
 
 每半各一枚 EC11，四层映射一致：
 
-| | 默认层 |
+| | 默认层（未在网页配置时的回落值） |
 | --- | --- |
-| 左编码器 | 音量（`C_VOL_UP` / `C_VOL_DN`） |
-| 右编码器 | 翻页（`PG_UP` / `PG_DN`） |
+| 左编码器（sensor 0） | 音量（`C_VOL_UP` / `C_VOL_DN`） |
+| 右编码器（sensor 1） | 翻页（`PG_UP` / `PG_DN`） |
 
-由 `sensor-bindings` 的 `&inc_dec_kp` 接管，**依赖 `config/sofle.conf` 里的
-`CONFIG_EC11=y` 与 `CONFIG_EC11_TRIGGER_GLOBAL_THREAD=y`** —— 这两行不能删，
-删掉后传感器仍在但不再产生事件，编码器会完全失效。
+**编码器映射可以在 DYA Studio 网页上按层实时配置，无需重新编译固件。**
+本分支接入了 [cormoran/zmk-behavior-runtime-sensor-rotate](https://github.com/cormoran/zmk-behavior-runtime-sensor-rotate)，
+`keymap` 里为左右编码器各定义了一个行为实例：
+
+```
+rsr_left_vol   → sensor 0（左）  cw-binding = <&kp C_VOL_UP>  ccw-binding = <&kp C_VOL_DN>
+rsr_right_pg   → sensor 1（右）  cw-binding = <&kp PG_UP>     ccw-binding = <&kp PG_DN>
+```
+
+四层的 `sensor-bindings` 统一为 `<&rsr_left_vol &rsr_right_pg>`。行为规则：
+
+- **默认回落**：某层还没在网页上配置过时，按上面写的 `cw-binding` / `ccw-binding` 动作
+  （与原main 分支的 `&inc_dec_kp` 手感一致）
+- **网页优先**：在 DYA Studio 上配了某层后，该层以网页配置为准
+- **配置持久化**：绑定写入 settings，重启后保留
+- 两项都不写时该实例完全透明（不产生动作）
+
+依赖 `config/sofle.conf` 里的 `CONFIG_EC11=y` 与
+`CONFIG_EC11_TRIGGER_GLOBAL_THREAD=y` —— 这两行不能删，删掉后传感器仍在
+但不再产生事件，编码器会完全失效。
+
+> 该模块的 Kconfig 只在 **central（左半）** 开启（见
+> `snippets/sofle-central/sofle-central.conf`）。Studio RPC 的 protobuf 桩代码
+> 只在 central 生成，右手开启会编译失败 —— 但这不影响使用：**编码器事件经由
+> 分体链路汇总到 central 处理**，两半的旋转都会生效。
+>
+> 它依赖 settings 后端做持久化，该后端已由 `zmk-module-settings-rpc` 提供
+> （`CONFIG_ZMK_SETTINGS_RPC=y`）。
 
 > `config/sofle.conf` 里没有 `CONFIG_ZMK_DISPLAY`。显示由 `build.yaml` 的
 > snippet（`sofle-oled` / `sofle-no-display`）控制。
@@ -126,12 +151,14 @@ Firefox 与 Safari 不支持。
 
 - **Keymap Editor** — 可视化编辑键位与图层，按键实时高亮
 - **Macros & Combos** — 网页上直接创建宏与组合键，**无需重新编译固件**
+- **Sensor Rotate** — 编码器顺/逆时针行为**按层配置**，无需重新编译，设置持久化
 - **Connection Management** — BLE 配置档重命名 / 切换 / 解绑，设置 USB 与蓝牙优先级
 - **Device Settings** — 电源管理（idle / deep sleep 超时）、各分半独立设置
 - **Troubleshooting** — 电量、固件版本、uptime；逐键抖键检测；复制完整支持报告
 
 > Sofle 有编码器但无轨迹球，DYA Studio 的 Trackball Tuning 与相关模块
-> （PMW3610 驱动）不适用；编码器对应的是 Input Processor 面板。
+> （PMW3610 驱动）不适用；编码器的方向映射在 **Sensor Rotate** 面板配置，
+> Input Processor 面板针对的是指点设备（鼠标/轨迹球）。
 
 ### Studio 锁定
 
