@@ -1,0 +1,89 @@
+manifest:
+  version: 1.2
+  defaults:
+    remote: cormoran
+    revision: main
+  remotes:
+    - name: cormoran
+      url-base: https://github.com/cormoran
+    - name: zmkfirmware
+      url-base: https://github.com/zmkfirmware
+  projects:
+    # 编译命令扩展：提供 `west zmk-build` 等命令
+    - name: zmk-west-commands
+      import: true
+
+    # ZMK 主仓库：使用 cormoran 的 fork，main+dya 分支
+    # 该分支 = ZMK main + 自定义 Studio RPC 协议 + 所有 DYA Studio 所需固件改动
+    - name: zmk
+      import:
+        file: app/west.yml
+      clone-depth: 1
+      revision: main+dya
+
+    # Zephyr 使用带 nRF 半双工 UART 支持的分支
+    - name: zephyr
+      revision: v4.1.0+zmk-fixes+nrf-half-duplex-uart
+      clone-depth: 1
+      import:
+        name-blocklist:
+          - ci-tools
+          - hal_altera
+          - hal_cypress
+          - hal_infineon
+          - hal_microchip
+          - hal_nxp
+          - hal_openisa
+          - hal_st
+          - hal_xtensa
+          - hal_ti
+          - loramac-node
+          - mcuboot
+          - mcumgr
+          - net-tools
+          - openthread
+          - edtt
+          - trusted-firmware-m
+
+    # ---------------------------------------------------------------------
+    # DYA Studio 扩展模块栈
+    # 每一项对应 DYA Studio Web UI 上的一个功能页面
+    # ---------------------------------------------------------------------
+
+    # 连接管理：BLE 配置档重命名 / 切换 / 解绑
+    - name: zmk-module-ble-management
+    # 设备设置：电源管理、Zephyr settings 的读写
+    - name: zmk-module-settings-rpc
+    # 自定义设置：让普通 Zephyr setting 可在网页上编辑
+    - name: zmk-feature-custom-settings
+    # 主机 OS 识别（Windows / macOS / Linux / iOS / Android）
+    - name: zmk-feature-os-detection
+    # 按连接目标 / 按 OS 自动切换默认层
+    - name: zmk-feature-default-layer
+      revision: codex/custom-rpc-rewrite
+      import: true
+    # 运行时宏：无需重编译即可在网页创建宏
+    - name: zmk-feature-runtime-macro
+    # 运行时组合键
+    - name: zmk-feature-runtime-combo
+    # 输入流：实时回传按键事件（DYA Studio 按键高亮）
+    - name: zmk-feature-input-stream
+    # 物理布局：DYA Studio 用它在网页上正确绘制键盘
+    # Sofle 的布局来自 ZMK fork 内置的 app/dts/layouts/josefadamcik/sofle.dtsi
+    # （sofle.dtsi 里 chosen 到 josefadamcik_sofle_layout），无需本仓库另写 dtsi。
+    - name: zmk-feature-module-physical-layout
+    # 输入处理器：鼠标 / 滚轮 / 滚动的运行时调节
+    - name: zmk-module-runtime-input-processor
+    # 快速键位图：增量同步键位，减少大数据量传输
+    - name: zmk-feature-fast-keymap
+    # 设备信息：固件版本、uptime、分半信息
+    - name: zmk-feature-device-info
+    # 抖键诊断：逐键抖动检测
+    - name: zmk-feature-kscan-diagnostics
+    # 看门狗：死机记录
+    - name: zmk-feature-watchdog
+    # 电池历史曲线
+    - name: zmk-module-battery-history
+
+  self:
+    path: config

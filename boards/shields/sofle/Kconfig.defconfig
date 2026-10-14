@@ -1,0 +1,69 @@
+# Sofle shield 的 Kconfig 补丁
+#
+# ⚠️ 这里**只保留**与"这块板是什么"有关的符号：键盘名、分体角色，以及
+#   从 ZMK 上游继承下来的 ZMK_SPLIT / 显示 / LVGL 默认值。
+#   所有功能开关（DYA Studio、OS 识别、默认层、各扩展模块……）都不在这里，
+#   而是按半边拆到 snippet：
+#
+#     snippets/sofle-central/     左手 = central，Studio 及全部 RPC
+#     snippets/sofle-peripheral/  右手 = peripheral，只接收/应用设置
+#     config/sofle.conf           两半共用（蓝牙、电池、sleep、EC11 编码器……）
+#
+# 为什么不用 `default y` 承载功能开关：
+# 1) defconfig 里的 default 是弱默认值，符号的 depends on 不满足时会被
+#    **静默丢弃且不产生任何警告** —— 这正是"编译通过但功能没打开"的成因；
+# 2) ZMK 按 shield 名自动应用 <shield_root>/<shield>.conf，.conf 是显式赋值，
+#    依赖不满足时会明确报 "assigned the value 'y' but got 'n'" 警告；
+#    构建日志里的这类警告必须清零，出现即代表配置写错了。
+# 3) *_STUDIO_RPC 依赖的 protobuf 桩代码只在 central 生成。
+#    snippet 天然按半边隔离，不会误开到外设半边。
+
+if SHIELD_SOFLE_LEFT
+
+# 本键盘的 central（主控）接在左手：左手负责 USB / BLE 与 Studio 通信。
+# 这与 ZMK 上游 sofle shield 一致（见 dependencies/zmk 内置的
+# app/boards/shields/sofle/Kconfig.defconfig，同样是 SHIELD_SOFLE_LEFT →
+# ZMK_SPLIT_ROLE_CENTRAL default y）。Sofle 默认就是左手主控，不是右手。
+config ZMK_KEYBOARD_NAME
+    # 蓝牙设备名限制 16 字节
+    default "Sofle DYA"
+
+config ZMK_SPLIT_ROLE_CENTRAL
+    default y
+
+endif
+
+if SHIELD_SOFLE_LEFT || SHIELD_SOFLE_RIGHT
+
+config ZMK_SPLIT
+    default y
+
+# 以下默认项来自 ZMK 上游 sofle shield，本地覆盖时不能丢掉
+if ZMK_DISPLAY
+
+config I2C
+    default y
+
+config SSD1306
+    default y
+
+endif # ZMK_DISPLAY
+
+if LVGL
+
+config LV_Z_VDB_SIZE
+    default 64
+
+config LV_DPI_DEF
+    default 148
+
+config LV_Z_BITS_PER_PIXEL
+    default 1
+
+choice LV_COLOR_DEPTH
+    default LV_COLOR_DEPTH_1
+endchoice
+
+endif # LVGL
+
+endif

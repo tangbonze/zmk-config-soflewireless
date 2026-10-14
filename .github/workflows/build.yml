@@ -1,5 +1,106 @@
-on: [push, pull_request, workflow_dispatch]
+name: Build ZMK firmware (DYA Studio)
+
+on:
+  push:
+    branches:
+      - main
+      - dya
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "创建 Release，填入版本号如 v1.0.0（留空则只构建）"
+        required: false
+  schedule:
+    # 每周五 20:00 JST (11:00 UTC) 验证一次上游变更
+    - cron: '0 11 * * 5'
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    name: Build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache west modules
+        uses: actions/cache@v4
+        continue-on-error: true
+        env:
+          cache_name: cache-west-modules
+        with:
+          path: dependencies/
+          key: ${{ runner.os }}-build-${{ env.cache_name }}-${{ hashFiles('config/west*.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache_name }}-
+
+      - name: Init west workspace
+        run: |
+          git config --global --add safe.directory ${{ github.workspace }}
+          west init -l config --mf west-isolated.yml
+          west update --narrow
+          west zephyr-export
+
+      - name: Build
+        run: west zmk-build -d ./build -q
+
+      - name: Collect artifacts
+        shell: sh -x {0}
+        run: |
+          mkdir -p artifacts
+          find ./build -type f -path '*/zephyr/zmk.uf2' \
+            | while read -r f; do
+                echo "Found: $f"
+                name=$(basename "$(dirname "$(dirname "$f")")")
+                mv "$f" "artifacts/${name}.uf2"
+              done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zmk-firmware
+          path: artifacts
+
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release != '' }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: zmk-firmware
+          path: artifacts
+      - name: Create release
+        run: |
+          gh release create ${{ inputs.release }} \
+            --title "${{ inputs.release }}" \
+            --generate-notes \
+            --latest \
+            --target ${{ github.sha }} \
+            artifacts/*.uf2
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # 保证定时任务不会自动停用
+  keepalive:
+    if: ${{ github.event_name == 'schedule' }}
+    permissions:
+      actions: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Re-enable workflow
+        run: gh workflow enable build.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_REPO: ${{ github.repository }}

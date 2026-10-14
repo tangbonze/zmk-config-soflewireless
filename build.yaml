@@ -1,19 +1,67 @@
-# This file generates the GitHub Actions matrix
-# For simple board + shield combinations, add them
-# to the top level board and shield arrays, for more
-# control, add individual board + shield combinations to
-# the `include` property, e.g:
+# DYA Studio 固件构建矩阵
 #
-# board: [ "nice_nano_v2" ]
-# shield: [ "corne_left", "corne_right" ]
-# include:
-#   - board: bdn9_rev2
-#   - board: nice_nano_v2
-#     shield: reviung41
+# 由 `west zmk-build` 驱动（来自 cormoran/zmk-west-commands）
+# 注意：artifact 字段名是 `artifact`，不是官方工作流的 `artifact-name`
+#
+# 每个左手变体都必须带 `sofle-central` snippet，每个右手变体都必须带
+# `sofle-peripheral` snippet —— DYA Studio 的全部 Kconfig 都在这两个 snippet 里
+# （ZMK Studio、OS 识别、默认层、各扩展模块）。漏掉的话固件照样能编过，
+# 但 Studio 整个协议栈不会被链接进去，表现为"编译通过、刷进去却连不上"。
+#
+# ⚠️ Sofle 每半各有一枚 EC11 编码器，overlay 里已 status = "okay"。
+#    编码器依赖 config/sofle.conf 里的 CONFIG_EC11 —— 两半共用该文件，
+#    因此两个半边都会编进 EC11 驱动，sensor-bindings 才能生效。
 #
 ---
 include:
-  - board: nice_nano_v2
+  # ================= 无屏版本（flash 余量最大，推荐日常使用） =================
+  - board: nice_nano//zmk
     shield: sofle_left
-  - board: nice_nano_v2
+    snippets: [sofle-no-display, sofle-central, studio-rpc-usb-uart]
+    artifact: sofle_left
+  - board: nice_nano//zmk
     shield: sofle_right
+    snippets: [sofle-no-display, sofle-peripheral]
+    artifact: sofle_right
+
+  # ================= OLED 版本 =================
+  - board: nice_nano//zmk
+    shield: sofle_left
+    snippets: [sofle-oled, sofle-central, studio-rpc-usb-uart]
+    artifact: sofle_left_oled
+  - board: nice_nano//zmk
+    shield: sofle_right
+    snippets: [sofle-oled, sofle-peripheral]
+    artifact: sofle_right_oled
+
+  # ================= nice!view 版本 =================
+  # sofle-no-display 用于禁用板载 OLED（否则 SSD1306 驱动照样编译进固件；
+  # nice_view.overlay 已把 zephyr,display 指向 nice_view）
+  - board: nice_nano//zmk
+    shield: sofle_left nice_view_adapter nice_view
+    snippets: [sofle-no-display, sofle-central, studio-rpc-usb-uart]
+    artifact: sofle_left_niceview
+  - board: nice_nano//zmk
+    shield: sofle_right nice_view_adapter nice_view
+    snippets: [sofle-no-display, sofle-peripheral]
+    artifact: sofle_right_niceview
+
+  # ================= Studio 常开版本（不需每次解锁） =================
+  # 默认固件在断开连接后会锁定 Studio，需要按住某键解锁。
+  # 下面两版关闭锁定，适合自己日常用、不担心别人乱改配置。
+  - board: nice_nano//zmk
+    shield: sofle_left
+    snippets: [sofle-no-display, sofle-central, studio-rpc-usb-uart]
+    cmake-args: -DCONFIG_ZMK_STUDIO_LOCKING=n
+    artifact: sofle_left_studio_unlocked
+  - board: nice_nano//zmk
+    shield: sofle_right
+    snippets: [sofle-no-display, sofle-peripheral]
+    cmake-args: -DCONFIG_ZMK_STUDIO_LOCKING=n
+    artifact: sofle_right_studio_unlocked
+
+  # ================= 设置重置固件 =================
+  # 刷这个可以把 DYA Studio 里改坏的设置恢复默认
+  - board: nice_nano//zmk
+    shield: settings_reset
+    artifact: settings_reset

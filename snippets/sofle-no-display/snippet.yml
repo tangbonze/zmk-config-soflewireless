@@ -1,0 +1,3 @@
+name: sofle-no-display
+append:
+  EXTRA_CONF_FILE: sofle-no-display.conf

@@ -1,0 +1,5 @@
+# 依赖下载到 west topdir（仓库的上一级），多个 config 仓库共享同一份 ZMK
+#   west init -l . --mf config/west-workspace.yml
+manifest:
+  self:
+    import: config/west-dependency.yml
